@@ -8,14 +8,20 @@ import (
 	"os"
 	"code.google.com/p/go9p/p"
 	"code.google.com/p/go9p/p/srv"
-	xmpp "code.google.com/p/goexmpp"
-	"crypto/tls"
+	"cjones.org/hg/go-xmpp2.hg/xmpp"
 )
 
 var (
 	addr = flag.String("addr", ":5640", "listen address")
 	debug = flag.Int("d", 0, "print debug messages")
+
+	/* FIXME: Os{User,Group}s are broken and useless stubs in go9p
+	 * Linux 9p implementation doesn't like it much, hint: use version=9p2000.u
+	 * Need to either fix it there or provide our own sane user/group types
+	 */
 	User = p.OsUsers.Uid2User(os.Geteuid())
+	Group = p.OsUsers.Gid2Group(os.Getegid())
+
 	Client *xmpp.Client
 )
 
@@ -42,14 +48,6 @@ func (s *StdLogger) Logf(fmt string, v ...interface{}) {
 	 log.Printf(fmt, v...)
 }
 
-func init() {
-	 logger := &StdLogger{}
-	 //xmpp.Debug = logger
-	 xmpp.Info = logger
-	 xmpp.Warn = logger
-	 xmpp.TlsConfig = tls.Config{InsecureSkipVerify: true}
-}
-
 func main() {
 	var err error
 	defer func() {
@@ -62,10 +60,9 @@ func main() {
 	}()
 	flag.Parse()
 	root := new(Root)
-	if err = root.Add(nil, "/", User, nil, p.DMDIR|0700, root); err != nil {
+	if err = root.Add(nil, "/", User, Group, p.DMDIR|0700, root); err != nil {
 		return
 	}
-	
 	MakeConfigDir(&root.File)
 	s := srv.NewFileSrv(&root.File)
 	s.Dotu = true

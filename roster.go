@@ -4,7 +4,8 @@ import (
 	"log"
 	"code.google.com/p/go9p/p"
 	"code.google.com/p/go9p/p/srv"
-	xmpp "code.google.com/p/goexmpp"
+	"cjones.org/hg/go-xmpp2.hg/xmpp"
+	"crypto/tls"
 )
 
 type RosterItem struct {
@@ -17,34 +18,43 @@ type Roster struct {
 }
 
 func MakeRoster(parent *srv.File) (dir *srv.File, err error) {
-	if Client, err = xmpp.NewClient(&xmpp.JID{Conf.Username, Conf.Server, Conf.Resource}, Conf.Password, nil); err != nil {
-		return
-	}
-	if err = Client.StartSession(true, &xmpp.Presence{}); err != nil {
+	stat := make(chan xmpp.Status)
+	go func() {
+		for s := range stat {
+			log.Printf("connection status %d", s)
+		}
+	}()
+	if Client, err = xmpp.NewClient(
+			&Conf.Jid,
+			Conf.Password,
+			tls.Config{InsecureSkipVerify: true},
+			nil, xmpp.Presence{}, stat); err != nil {
+		log.Printf("xmpp.NewClient:", err)
 		return
 	}
 	roster := new(Roster)
 	if err = roster.Add(parent, "roster", User, nil, p.DMDIR | 0700, roster); err != nil {
 		return
 	}
-	for _, buddy := range xmpp.Roster(Client) {
+	for _, buddy := range Client.Roster.Get() {
 		if _, err = roster.MakeItem(buddy); err != nil {
 			return
 		}
 	}
 	dir = &roster.File
 	go func(ch <-chan xmpp.Stanza) {
-		for _ = range ch {
+		for s := range ch {
+			log.Print(s)
 		}
 		log.Print("done reading")
-	}(Client.In)
+	}(Client.Recv)
 	return
 }
 
 func (r *Roster) MakeItem(buddy xmpp.RosterItem) (ri *RosterItem, err error) {
 	nri := new(RosterItem)
 	nri.RosterItem = buddy
-	if err = nri.Add(&r.File, buddy.Jid, User, nil, p.DMDIR | 0700, nri); err != nil {
+	if err = nri.Add(&r.File, string(buddy.Jid), User, nil, p.DMDIR | 0700, nri); err != nil {
 		return
 	}
 	return nri, nil

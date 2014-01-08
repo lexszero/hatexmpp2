@@ -6,19 +6,17 @@ import (
 	"fmt"
 	"code.google.com/p/go9p/p"
 	"code.google.com/p/go9p/p/srv"
+	"cjones.org/hg/go-xmpp2.hg/xmpp"
 )
 
 type Config struct {
-	Username string
-	Server string
+	Jid xmpp.JID
 	Password string
-	Resource string
 	Priority int
 	Nick string
 }
 
 var Conf = Config{
-	Resource: "goHateXMPP",
 	Nick: "goHateXMPP",
 }
 
@@ -44,9 +42,6 @@ func (cf *ConfigFile) Write(fid *srv.FFid, buf []byte, offset uint64) (n int, er
 	cf.Lock()
 	defer cf.Unlock()
 
-	log.Printf("%#v", cf.val)
-	log.Printf("%#v", cf.val.Type())
-	log.Printf("%#v", cf.val.Kind())
 	s := string(buf)
 	switch cf.val.Kind() {
 	case reflect.String:
