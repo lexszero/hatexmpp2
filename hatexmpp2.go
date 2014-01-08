@@ -37,17 +37,6 @@ func (r *Root) Create(fid *srv.FFid, name string, perm uint32) (dir *srv.File, e
 	return nil, srv.Enotimpl
 }
 
-type StdLogger struct {
-}
-
-func (s *StdLogger) Log(v ...interface{}) {
-	 log.Println(v...)
-}
-
-func (s *StdLogger) Logf(fmt string, v ...interface{}) {
-	 log.Printf(fmt, v...)
-}
-
 func main() {
 	var err error
 	defer func() {
