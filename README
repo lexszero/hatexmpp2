@@ -1,0 +1,51 @@
+Filesystem structure
+	roster/
+		<jid>/
+			resources/
+				<resource>/
+					chat
+			chat
+			vcard/
+				vcard (raw)
+				photo
+				nickname
+				<other stuff>
+			status/
+				text
+				pgp_key
+			pgp_key
+			presence_subscription
+			pubsub/
+				TBD
+	muc/
+		<muc jid>/
+			persons/
+				all/
+					<roster-like jid structure (TBD: nicknames or JIDs)>/
+				owners/
+				moderators/
+				members/
+				guests/
+			chat
+			config
+			nickname
+	config/
+		server
+		port
+		password
+		login
+		resource
+		priority
+		tls
+		log_directory
+		default_nickname
+		status
+	discovery/
+		<server name to mkdir>/
+			<service>/
+				TBD; there are FORMS
+	events
+Event protocol
+	TBD
+Chat logging protocol
+	TBD
