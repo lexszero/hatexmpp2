@@ -1,11 +1,11 @@
 package main
 
 import (
-	"log"
+	"cjones.org/hg/go-xmpp2.hg/xmpp"
 	"code.google.com/p/go9p/p"
 	"code.google.com/p/go9p/p/srv"
-	"cjones.org/hg/go-xmpp2.hg/xmpp"
 	"crypto/tls"
+	"log"
 )
 
 type RosterItem struct {
@@ -25,15 +25,15 @@ func MakeRoster(parent *srv.File) (dir *srv.File, err error) {
 		}
 	}()
 	if Client, err = xmpp.NewClient(
-			&Conf.Jid,
-			Conf.Password,
-			tls.Config{InsecureSkipVerify: true},
-			nil, xmpp.Presence{}, stat); err != nil {
+		&Conf.Jid,
+		Conf.Password,
+		tls.Config{InsecureSkipVerify: true},
+		nil, xmpp.Presence{}, stat); err != nil {
 		log.Printf("xmpp.NewClient:", err)
 		return
 	}
 	roster := new(Roster)
-	if err = roster.Add(parent, "roster", User, nil, p.DMDIR | 0700, roster); err != nil {
+	if err = roster.Add(parent, "roster", User, nil, p.DMDIR|0700, roster); err != nil {
 		return
 	}
 	for _, buddy := range Client.Roster.Get() {
@@ -54,7 +54,7 @@ func MakeRoster(parent *srv.File) (dir *srv.File, err error) {
 func (r *Roster) MakeItem(buddy xmpp.RosterItem) (ri *RosterItem, err error) {
 	nri := new(RosterItem)
 	nri.RosterItem = buddy
-	if err = nri.Add(&r.File, string(buddy.Jid), User, nil, p.DMDIR | 0700, nri); err != nil {
+	if err = nri.Add(&r.File, string(buddy.Jid), User, nil, p.DMDIR|0700, nri); err != nil {
 		return
 	}
 	return nri, nil
