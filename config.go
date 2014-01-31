@@ -24,7 +24,7 @@ func MakeConfigDir(parent *srv.File) {
 	t := reflect.TypeOf(Conf)
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
-		f := &FilePrintScan{val: reflect.ValueOf(&Conf).Elem().Field(i)}
+		f := &FilePrintScan{FilePrint: FilePrint{val: reflect.ValueOf(&Conf).Elem().Field(i)}}
 		f.File.Add(dir, field.Name, User, Group, 0666, f)
 	}
 }

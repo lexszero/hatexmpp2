@@ -22,6 +22,10 @@ type FilePrint struct {
 	val reflect.Value
 }
 
+func (f *FilePrint) Wstat(fid *srv.FFid, dir *p.Dir) error {
+	return nil
+}
+
 func (f *FilePrint) Read(fid *srv.FFid, buf []byte, offset uint64) (int, error) {
 	f.Lock()
 	defer f.Unlock()
@@ -37,10 +41,8 @@ func (f *FilePrint) Read(fid *srv.FFid, buf []byte, offset uint64) (int, error) 
 	return 0, srv.Eperm
 }
 
-type FilePrintScan FilePrint
-
-func (f *FilePrintScan) Wstat(fid *srv.FFid, dir *p.Dir) error {
-	return nil
+type FilePrintScan struct {
+	FilePrint
 }
 
 func (f *FilePrintScan) Write(fid *srv.FFid, buf []byte, offset uint64) (n int, err error) {

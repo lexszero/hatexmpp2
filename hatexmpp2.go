@@ -22,17 +22,38 @@ var (
 	User  = p.OsUsers.Uid2User(os.Geteuid())
 	Group = p.OsUsers.Gid2Group(os.Getegid())
 
+	Srv = &Server{
+		Flushers: make(map[*srv.Fid]Flusher),
+	}
 	Client *xmpp.Client
+	Roster *FRoster
 )
 
-type Root struct {
+type Server struct {
+	srv.Fsrv
+	Flushers map[*srv.Fid]Flusher
+}
+
+type Flusher interface {
+	Flush(*srv.Fid)
+}
+
+func (s *Server) Flush(req *srv.Req) {
+	if f, ok := s.Flushers[req.Fid]; ok {
+		f.Flush(req.Fid)
+	}
+	req.Flush()
+}
+
+type FRoot struct {
 	srv.File
 }
 
-func (r *Root) Create(fid *srv.FFid, name string, perm uint32) (dir *srv.File, err error) {
+func (r *FRoot) Create(fid *srv.FFid, name string, perm uint32) (dir *srv.File, err error) {
 	switch {
 	case name == "roster" && (perm&p.DMDIR != 0):
-		return MakeRoster(&r.File)
+		Roster, err = MakeRoster(&r.File)
+		return &Roster.File, err
 	}
 	return nil, srv.Enotimpl
 }
@@ -42,12 +63,12 @@ func main() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
 	flag.Parse()
-	root := new(Root)
+	root := new(FRoot)
 	Must(root.Add(nil, "/", User, Group, p.DMDIR|0700, root))
 	MakeConfigDir(&root.File)
-	s := srv.NewFileSrv(&root.File)
-	s.Dotu = true
-	s.Debuglevel = *debug
-	s.Start(s)
-	Must(s.StartNetListener("tcp", *addr))
+	Srv.Fsrv.Root = &root.File
+	Srv.Dotu = true
+	Srv.Debuglevel = *debug
+	Srv.Start(Srv)
+	Must(Srv.StartNetListener("tcp", *addr))
 }
