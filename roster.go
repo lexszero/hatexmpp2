@@ -13,27 +13,31 @@ import (
 type RosterItem struct {
 	srv.File
 	xmpp.RosterItem
+	RamBuffer
 	Chat *FileHistory
 }
 
 func (ri *RosterItem) Write(p []byte) (n int, err error) {
-	m := &xmpp.Message{}
-	m.To = ri.RosterItem.Jid
-	m.From = Client.Jid
-	m.Id = xmpp.NextId()
-	m.Type = "chat"
-	m.Body = []xmpp.Text{{
-		XMLName: xml.Name{Local: "body"},
-		Chardata: string(p),
-	}}
+	m := &xmpp.Message{
+		Header: xmpp.Header{
+			To: ri.RosterItem.Jid,
+			From: Client.Jid,
+			Id: xmpp.NextId(),
+			Type: "chat",
+		},
+		Body: []xmpp.Text{{
+			XMLName:  xml.Name{Local: "body"},
+			Chardata: string(p),
+		}},
+	}
 	Client.Send <- m
-	MessageToMsg(m).WriteTo(ri.Chat.BufWriter)
+	MessageToMsg(m).WriteTo(ri.Chat.Writer)
 	return len(p), nil
 }
 
 type FRoster struct {
 	srv.File
-	Items map[xmpp.JID]*RosterItem
+	Items       map[xmpp.JID]*RosterItem
 	UnknownChat *FileHistory
 }
 
@@ -41,7 +45,7 @@ func MakeRoster(parent *srv.File) (roster *FRoster, err error) {
 	stat := make(chan xmpp.Status)
 	go func() {
 		for s := range stat {
-			log.Printf("connection status %d", s)
+			Log.Printf("connection status %d", s)
 		}
 	}()
 	if Client, err = xmpp.NewClient(
@@ -53,8 +57,8 @@ func MakeRoster(parent *srv.File) (roster *FRoster, err error) {
 		return
 	}
 	roster = &FRoster{
-		Items: make(map[xmpp.JID]*RosterItem),
-		UnknownChat: NewFileHistory(),
+		Items:       make(map[xmpp.JID]*RosterItem),
+		UnknownChat: NewFileHistory(new(RamBuffer)),
 	}
 	Must(roster.Add(parent, "roster", User, nil, p.DMDIR|0700, roster))
 	Must(roster.UnknownChat.Add(&roster.File, "UnknownChat", User, Group, 0600, roster.UnknownChat))
@@ -76,9 +80,8 @@ func MakeRoster(parent *srv.File) (roster *FRoster, err error) {
 func (r *FRoster) MakeItem(buddy xmpp.RosterItem) (ri *RosterItem, err error) {
 	nri := &RosterItem{
 		RosterItem: buddy,
-		Chat: NewFileHistory(),
 	}
-	nri.Chat.Writer = nri;
+	nri.Chat = NewFileHistory(nri)
 	Must(nri.Add(&r.File, string(buddy.Jid), User, nil, p.DMDIR|0700, nri))
 	fp := &FilePrint{val: reflect.ValueOf(&buddy.Name).Elem()}
 	Must(fp.Add(&nri.File, "Name", User, Group, 0400, fp))
@@ -110,6 +113,10 @@ func JidToChat(jid xmpp.JID) *FileHistory {
 	if ri != nil {
 		return ri.Chat
 	}
+	muc := MUCs.Items[jid.Bare()]
+	if muc != nil {
+		return muc.Chat
+	}
 	return Roster.UnknownChat
 }
 
@@ -117,7 +124,7 @@ func ProcessStanza(s xmpp.Stanza) {
 	hdr := s.GetHeader()
 	switch m := s.(type) {
 	case *xmpp.Message:
-		MessageToMsg(m).WriteTo(JidToChat(hdr.From).BufWriter)
+		MessageToMsg(m).WriteTo(JidToChat(hdr.From).Writer)
 	default:
 		log.Print("Unkown stanza: %+v", s)
 	}

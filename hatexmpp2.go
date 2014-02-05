@@ -26,7 +26,9 @@ var (
 		Flushers: make(map[*srv.Fid]Flusher),
 	}
 	Client *xmpp.Client
+	Log    *log.Logger
 	Roster *FRoster
+	MUCs   *FMUCDir
 )
 
 type Server struct {
@@ -62,10 +64,18 @@ func main() {
 	go func() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
+	//xmpp.Debug = true
 	flag.Parse()
 	root := new(FRoot)
 	Must(root.Add(nil, "/", User, Group, p.DMDIR|0700, root))
 	MakeConfigDir(&root.File)
+	
+	flog := NewFileHistory(new(RamBuffer))
+	Log = log.New(flog.Writer, "", log.LstdFlags)
+	Must(flog.Add(&root.File, "log", User, Group, 0400, flog))
+	
+	MUCs = MakeMUCsDir(&root.File)
+
 	Srv.Fsrv.Root = &root.File
 	Srv.Dotu = true
 	Srv.Debuglevel = *debug
