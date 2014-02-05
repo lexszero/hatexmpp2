@@ -52,7 +52,7 @@ type RosterItem struct {
 	srv.File
 	xmpp.RosterItem
 	sync.Mutex
-	Chat *FileHistory
+	Chat      *FileHistory
 	Resources map[string]*Resource
 }
 
@@ -157,8 +157,8 @@ func MakeRoster(parent *srv.File) (roster *FRoster, err error) {
 		roster.AddItem(buddy)
 	}
 	go func(ch <-chan xmpp.Stanza) {
+		log.Print("Receiving stanzas")
 		for s := range ch {
-			//log.Print(s)
 			ProcessStanza(s)
 		}
 		log.Print("done reading")
@@ -167,9 +167,7 @@ func MakeRoster(parent *srv.File) (roster *FRoster, err error) {
 }
 
 func (r *FRoster) AddItem(buddy xmpp.RosterItem) (ri *RosterItem) {
-	r.Lock()
-	defer r.Unlock()
-
+	log.Printf("Roster.AddItem %v", buddy.Jid)
 	nri := &RosterItem{
 		RosterItem: buddy,
 	}
@@ -188,9 +186,6 @@ func (r *FRoster) AddItem(buddy xmpp.RosterItem) (ri *RosterItem) {
 }
 
 func (r *FRoster) RemoveItem(jid xmpp.JID) {
-	r.Lock()
-	defer r.Unlock()
-
 	ri := r.Items[jid]
 	if ri == nil {
 		return

@@ -7,7 +7,6 @@ import (
 	"code.google.com/p/go9p/p/srv"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"reflect"
 	"strings"
@@ -54,7 +53,6 @@ func (f *FilePrint) Read(fid *srv.FFid, buf []byte, offset uint64) (int, error) 
 	f.Lock()
 	defer f.Unlock()
 
-	log.Print("read")
 	b := []byte(fmt.Sprint(f.val.Interface()))
 	have := len(b)
 	off := int(offset)
@@ -222,12 +220,10 @@ func (f *FileHistory) Read(fid *srv.FFid, buf []byte, offset uint64) (int, error
 }
 
 func (f *FileHistory) Write(fid *srv.FFid, buf []byte, offset uint64) (int, error) {
-	log.Print("FileHistory.Write")
 	return f.writer.Write(buf)
 }
 
 func (f *FileHistory) Append(buf []byte) (n int, err error) {
-	log.Print("FileHistory.Append")
 	if _, ok := f.History.(io.Writer); ok {
 		f.writes <- buf
 		return len(buf), nil

@@ -1,9 +1,9 @@
 package main
 
 import (
+	"cjones.org/hg/go-xmpp2.hg/xmpp"
 	"code.google.com/p/go9p/p"
 	"code.google.com/p/go9p/p/srv"
-	"cjones.org/hg/go-xmpp2.hg/xmpp"
 	"encoding/xml"
 	"fmt"
 )
@@ -11,17 +11,17 @@ import (
 type MUC struct {
 	srv.File
 	RamBuffer
-	Jid  xmpp.JID
-	Chat *FileHistory
+	Jid     xmpp.JID
+	Chat    *FileHistory
 	Members map[string]*Resource
 }
 
 func (muc *MUC) Write(p []byte) (n int, err error) {
 	m := &xmpp.Message{
 		Header: xmpp.Header{
-			To: muc.Jid,
+			To:   muc.Jid,
 			From: Client.Jid,
-			Id: xmpp.NextId(),
+			Id:   xmpp.NextId(),
 			Type: "groupchat",
 		},
 		Body: []xmpp.Text{{
@@ -34,32 +34,32 @@ func (muc *MUC) Write(p []byte) (n int, err error) {
 }
 
 func (muc *MUC) Presence(p *xmpp.Presence) {
-/*	hdr := p.GetHeader()
-	mname := hdr.From.Resource()
-	m := muc.Members[resname]
-	switch hdr.Type {
-	case "unavailable":
-		if res != nil {
-			Log.Printf("%v: delete member '%v'", muc.Jid, mname)
-			delete(muc.Members, mname)
-			if mf := ri.resdir.Find(resname); rf != nil {
-				rf.Remove()
+	/*	hdr := p.GetHeader()
+		mname := hdr.From.Resource()
+		m := muc.Members[resname]
+		switch hdr.Type {
+		case "unavailable":
+			if res != nil {
+				Log.Printf("%v: delete member '%v'", muc.Jid, mname)
+				delete(muc.Members, mname)
+				if mf := ri.resdir.Find(resname); rf != nil {
+					rf.Remove()
+				}
 			}
-		}
-	case "subscribe", "subscribed", "unsubscribe", "unsubscribed", "probe", "error":
+		case "subscribe", "subscribed", "unsubscribe", "unsubscribed", "probe", "error":
 
-	default:
-		if res == nil {
-			Log.Printf("%v: new resource '%v'", ri.Jid, resname)
-			res = new(Resource)
-			ri.Resources[resname] = res
+		default:
+			if res == nil {
+				Log.Printf("%v: new resource '%v'", ri.Jid, resname)
+				res = new(Resource)
+				ri.Resources[resname] = res
+			}
+			// TODO: some fucking mutex
+			MaybeSetData(&res.Show, p.Show)
+			MaybeSetText(&res.Status, p.Status)
+			MaybeSetData(&res.Priority, p.Priority)
 		}
-		// TODO: some fucking mutex
-		MaybeSetData(&res.Show, p.Show)
-		MaybeSetText(&res.Status, p.Status)
-		MaybeSetData(&res.Priority, p.Priority)
-	}
-*/
+	*/
 }
 
 type FMUCDir struct {
@@ -76,7 +76,7 @@ func MakeMUCsDir(parent *srv.File) (m *FMUCDir) {
 }
 
 func (m *FMUCDir) Create(fid *srv.FFid, name string, perm uint32) (*srv.File, error) {
-	if  perm & p.DMDIR != 0 {
+	if perm&p.DMDIR != 0 {
 		jid := xmpp.JID(name)
 		if _, ok := m.Items[jid]; ok {
 			return nil, srv.Eexist
@@ -96,15 +96,15 @@ func (m *FMUCDir) Create(fid *srv.FFid, name string, perm uint32) (*srv.File, er
 
 func NewMUC(parent *srv.File, jid xmpp.JID) (*MUC, error) {
 	muc := &MUC{
-		Jid: jid,
+		Jid:     jid,
 		Members: make(map[string]*Resource),
 	}
 	muc.Chat = NewFileHistory(muc)
 	m := &xmpp.Presence{
 		Header: xmpp.Header{
-			To: xmpp.JID(fmt.Sprintf("%s/%s", jid, Conf.Nick)),
-			From: Client.Jid,
-			Id: xmpp.NextId(),
+			To:       xmpp.JID(fmt.Sprintf("%s/%s", jid, Conf.Nick)),
+			From:     Client.Jid,
+			Id:       xmpp.NextId(),
 			Innerxml: "<x xmlns='http://jabber.org/protocol/muc'/>",
 		},
 	}
