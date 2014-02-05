@@ -99,7 +99,7 @@ func NewMUC(parent *srv.File, jid xmpp.JID) (*MUC, error) {
 		Jid:     jid,
 		Members: make(map[string]*Resource),
 	}
-	muc.Chat = NewFileHistory(muc)
+	muc.Chat = NewFileChat(string(jid), muc)
 	m := &xmpp.Presence{
 		Header: xmpp.Header{
 			To:       xmpp.JID(fmt.Sprintf("%s/%s", jid, Conf.Nick)),

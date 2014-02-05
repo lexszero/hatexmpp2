@@ -72,7 +72,7 @@ func (ri *RosterItem) AddResource(name string) *Resource {
 	r := &Resource{
 		Jid: xmpp.JID(fmt.Sprintf("%v/%v", ri.RosterItem.Jid, name)),
 	}
-	r.Chat = NewFileHistory(r)
+	r.Chat = NewFileHistory(r, nil)
 	r.Add(ri.Find("resources"), name, User, Group, p.DMDIR|0700, r)
 	fp := &FilePrint{val: reflect.ValueOf(&r.Show)}
 	fp.Add(&r.File, "show", User, Group, 0400, fp)
@@ -149,9 +149,9 @@ func MakeRoster(parent *srv.File) (roster *FRoster, err error) {
 	}
 	roster = &FRoster{
 		Items:       make(map[xmpp.JID]*RosterItem),
-		UnknownChat: NewFileHistory(new(RamBuffer)),
+		UnknownChat: NewFileChat("unknown", nil),
 	}
-	Must(roster.Add(parent, "roster", User, nil, p.DMDIR|0700, roster))
+	Must(roster.Add(parent, "roster", User, Group, p.DMDIR|0700, roster))
 	Must(roster.UnknownChat.Add(&roster.File, "unknown", User, Group, 0600, roster.UnknownChat))
 	for _, buddy := range Client.Roster.Get() {
 		roster.AddItem(buddy)
@@ -171,9 +171,9 @@ func (r *FRoster) AddItem(buddy xmpp.RosterItem) (ri *RosterItem) {
 	nri := &RosterItem{
 		RosterItem: buddy,
 	}
-	nri.Chat = NewFileHistory(nri)
+	nri.Chat = NewFileChat(string(buddy.Jid), nri)
 	nri.Resources = make(map[string]*Resource)
-	Must(nri.Add(&r.File, string(buddy.Jid), User, nil, p.DMDIR|0700, nri))
+	Must(nri.Add(&r.File, string(buddy.Jid), User, Group, p.DMDIR|0700, nri))
 	fp := &FilePrint{val: reflect.ValueOf(&buddy.Name).Elem()}
 	Must(fp.Add(&nri.File, "name", User, Group, 0400, fp))
 	fp = &FilePrint{val: reflect.ValueOf(&buddy.Subscription).Elem()}

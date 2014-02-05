@@ -70,7 +70,7 @@ func main() {
 	Must(root.Add(nil, "/", User, Group, p.DMDIR|0700, root))
 	MakeConfigDir(&root.File)
 
-	flog := NewFileHistory(new(RamBuffer))
+	flog := NewFileHistory(nil, nil)
 	Log = log.New(flog.Writer, "", log.LstdFlags)
 	Must(flog.Add(&root.File, "log", User, Group, 0400, flog))
 

@@ -18,6 +18,11 @@ func Must(err error) {
 	}
 }
 
+func MustVal(x interface{}, err error) interface{} {
+	Must(err)
+	return x
+}
+
 func ConcatText(t []xmpp.Text) string {
 	s := make([]string, len(t))
 	for i := range t {
@@ -98,6 +103,31 @@ func (b *RamBuffer) ReadAt(p []byte, off int64) (n int, err error) {
 	return
 }
 
+type LogFile struct {
+	*os.File
+}
+
+func NewLogFile(name string) *LogFile {
+	return &LogFile{MustVal(os.OpenFile(fmt.Sprintf("%s/%s", Conf.LogDir, name), os.O_RDWR|os.O_APPEND|os.O_CREATE, 0644)).(*os.File)}
+}
+
+func (l *LogFile) Len() int {
+	fi := MustVal(l.Stat()).(os.FileInfo)
+	return int(fi.Size())
+}
+
+func (l *LogFile) ReadAt(p []byte, off int64) (n int, err error) {
+	sz := l.Len()
+	if int(off) > sz {
+		return 0, os.ErrInvalid
+	}
+	n = sz - int(off)
+	if n > len(p) {
+		n = len(p)
+	}
+	return l.File.ReadAt(p[:n], off)
+}
+
 type ReadRequest struct {
 	p      []byte
 	off    uint64
@@ -141,14 +171,17 @@ type FileHistory struct {
 	stop    chan bool
 }
 
-func NewFileHistory(wr io.Writer) *FileHistory {
+func NewFileHistory(wr io.Writer, h History) *FileHistory {
 	b := &FileHistory{
-		History: new(RamBuffer),
+		History: h,
 		writer:  wr,
 		reads:   make(chan ReadRequest),
 		writes:  make(chan []byte),
 		cancels: make(chan *srv.Fid),
 		stop:    make(chan bool),
+	}
+	if b.History == nil {
+		b.History = new(RamBuffer)
 	}
 	b.Writer = AppendingWriter{b}
 	go func() {
@@ -220,7 +253,10 @@ func (f *FileHistory) Read(fid *srv.FFid, buf []byte, offset uint64) (int, error
 }
 
 func (f *FileHistory) Write(fid *srv.FFid, buf []byte, offset uint64) (int, error) {
-	return f.writer.Write(buf)
+	if f.writer != nil {
+		return f.writer.Write(buf)
+	}
+	return len(buf), nil
 }
 
 func (f *FileHistory) Append(buf []byte) (n int, err error) {
@@ -229,4 +265,11 @@ func (f *FileHistory) Append(buf []byte) (n int, err error) {
 		return len(buf), nil
 	}
 	return 0, srv.Eperm
+}
+
+func NewFileChat(name string, wr io.Writer) *FileHistory {
+	if Conf.LogDir != "" {
+		return NewFileHistory(wr, NewLogFile(name))
+	}
+	return NewFileHistory(wr, nil)
 }

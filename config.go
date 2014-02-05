@@ -12,6 +12,7 @@ type Config struct {
 	Password string
 	Priority int
 	Nick     string
+	LogDir   string
 }
 
 var Conf = Config{
