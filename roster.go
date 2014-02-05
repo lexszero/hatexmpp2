@@ -93,6 +93,7 @@ func (ri *RosterItem) RemoveResource(name string) {
 	if r == nil {
 		return
 	}
+	r.Chat.Stop()
 	for _, name := range []string{"Show", "Status", "Priority", "Chat"} {
 		r.Find(name).Remove()
 	}
@@ -100,7 +101,6 @@ func (ri *RosterItem) RemoveResource(name string) {
 
 	delete(ri.Resources, name)
 }
-
 
 func (ri *RosterItem) Presence(p *xmpp.Presence) {
 	hdr := p.GetHeader()
@@ -154,9 +154,7 @@ func MakeRoster(parent *srv.File) (roster *FRoster, err error) {
 	Must(roster.Add(parent, "roster", User, nil, p.DMDIR|0700, roster))
 	Must(roster.UnknownChat.Add(&roster.File, "UnknownChat", User, Group, 0600, roster.UnknownChat))
 	for _, buddy := range Client.Roster.Get() {
-		if _, err = roster.MakeItem(buddy); err != nil {
-			return
-		}
+		roster.AddItem(buddy)
 	}
 	go func(ch <-chan xmpp.Stanza) {
 		for s := range ch {
@@ -168,7 +166,10 @@ func MakeRoster(parent *srv.File) (roster *FRoster, err error) {
 	return
 }
 
-func (r *FRoster) MakeItem(buddy xmpp.RosterItem) (ri *RosterItem, err error) {
+func (r *FRoster) AddItem(buddy xmpp.RosterItem) (ri *RosterItem) {
+	r.Lock()
+	defer r.Unlock()
+
 	nri := &RosterItem{
 		RosterItem: buddy,
 	}
@@ -183,7 +184,26 @@ func (r *FRoster) MakeItem(buddy xmpp.RosterItem) (ri *RosterItem, err error) {
 	resdir := &srv.File{}
 	Must(resdir.Add(&nri.File, "Resources", User, Group, p.DMDIR|0700, resdir))
 	r.Items[buddy.Jid] = nri
-	return nri, nil
+	return nri
+}
+
+func (r *FRoster) RemoveItem(jid xmpp.JID) {
+	r.Lock()
+	defer r.Unlock()
+
+	ri := r.Items[jid]
+	if ri == nil {
+		return
+	}
+	ri.Chat.Stop()
+	for res := range ri.Resources {
+		ri.RemoveResource(res)
+	}
+	for _, name := range []string{"Name", "Subscription", "Chat", "Resources"} {
+		ri.Find(name).Remove()
+	}
+	ri.Remove()
+	delete(r.Items, jid)
 }
 
 func (r *FRoster) Create(fid *srv.FFid, name string, perm uint32) (dir *srv.File, err error) {

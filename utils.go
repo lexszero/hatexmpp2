@@ -140,6 +140,7 @@ type FileHistory struct {
 	reads   chan ReadRequest
 	writes  chan []byte
 	cancels chan *srv.Fid
+	stop    chan bool
 }
 
 func NewFileHistory(wr io.Writer) *FileHistory {
@@ -149,6 +150,7 @@ func NewFileHistory(wr io.Writer) *FileHistory {
 		reads:   make(chan ReadRequest),
 		writes:  make(chan []byte),
 		cancels: make(chan *srv.Fid),
+		stop:    make(chan bool),
 	}
 	b.Writer = AppendingWriter{b}
 	go func() {
@@ -170,15 +172,29 @@ func NewFileHistory(wr io.Writer) *FileHistory {
 					}
 				}
 			case f := <-b.cancels:
-				log.Printf("cancel fid=%v", f)
 				delete(reads, f)
 				if len(reads) == 0 {
 					delete(Srv.Flushers, f)
 				}
+			case <-b.stop:
+				for f, r := range reads {
+					r.result <- ReadResult{0, io.EOF}
+					delete(reads, f)
+					delete(Srv.Flushers, f)
+				}
+				close(b.reads)
+				close(b.writes)
+				close(b.cancels)
+				close(b.stop)
+				break
 			}
 		}
 	}()
 	return b
+}
+
+func (f *FileHistory) Stop() {
+	f.stop <- true
 }
 
 func (f *FileHistory) tryReadAt(r *ReadRequest) bool {
