@@ -6,7 +6,6 @@ import (
 	"cjones.org/hg/go-xmpp2.hg/xmpp"
 	"encoding/xml"
 	"fmt"
-	"log"
 )
 
 type MUC struct {
@@ -14,7 +13,7 @@ type MUC struct {
 	RamBuffer
 	Jid  xmpp.JID
 	Chat *FileHistory
-	Members map[string]*RosterItem
+	Members map[string]*Resource
 }
 
 func (muc *MUC) Write(p []byte) (n int, err error) {
@@ -32,6 +31,35 @@ func (muc *MUC) Write(p []byte) (n int, err error) {
 	}
 	Client.Send <- m
 	return len(p), nil
+}
+
+func (muc *MUC) Presence(p *xmpp.Presence) {
+/*	hdr := p.GetHeader()
+	mname := hdr.From.Resource()
+	m := muc.Members[resname]
+	switch hdr.Type {
+	case "unavailable":
+		if res != nil {
+			Log.Printf("%v: delete member '%v'", muc.Jid, mname)
+			delete(muc.Members, mname)
+			if mf := ri.resdir.Find(resname); rf != nil {
+				rf.Remove()
+			}
+		}
+	case "subscribe", "subscribed", "unsubscribe", "unsubscribed", "probe", "error":
+
+	default:
+		if res == nil {
+			Log.Printf("%v: new resource '%v'", ri.Jid, resname)
+			res = new(Resource)
+			ri.Resources[resname] = res
+		}
+		// TODO: some fucking mutex
+		MaybeSetData(&res.Show, p.Show)
+		MaybeSetText(&res.Status, p.Status)
+		MaybeSetData(&res.Priority, p.Priority)
+	}
+*/
 }
 
 type FMUCDir struct {
@@ -53,20 +81,23 @@ func (m *FMUCDir) Create(fid *srv.FFid, name string, perm uint32) (*srv.File, er
 		if _, ok := m.Items[jid]; ok {
 			return nil, srv.Eexist
 		}
+		Log.Print("joining MUC ", jid)
 		muc, err := NewMUC(&m.File, jid)
 		if err != nil {
+			Log.Print("failed", err)
 			return nil, err
 		}
 		m.Items[jid] = muc
+		Log.Print("success")
 		return &muc.File, nil
 	}
 	return nil, srv.Enotimpl
 }
 
-func NewMUC(parent *srv.File, jid xmpp.JID) (muc *MUC, err error) {
-	muc = &MUC{
+func NewMUC(parent *srv.File, jid xmpp.JID) (*MUC, error) {
+	muc := &MUC{
 		Jid: jid,
-		Members: make(map[string]*RosterItem),
+		Members: make(map[string]*Resource),
 	}
 	muc.Chat = NewFileHistory(muc)
 	m := &xmpp.Presence{
@@ -77,15 +108,22 @@ func NewMUC(parent *srv.File, jid xmpp.JID) (muc *MUC, err error) {
 			Innerxml: "<x xmlns='http://jabber.org/protocol/muc'/>",
 		},
 	}
-	log.Print("joining MUC ", jid)
 	Client.Send <- m
-	reply := make(chan int)
+	err := make(chan error)
 	Client.SetCallback(m.Id, func(s xmpp.Stanza) {
-		reply <- 1
+		switch s.(type) {
+		case *xmpp.Presence:
+			// TODO: error parsing
+			err <- nil
+		default:
+			err <- srv.Eperm
+		}
 	})
-	log.Print("waiting reply")
-	<-reply
+	e := <-err
+	if e != nil {
+		return nil, e
+	}
 	Must(muc.Add(parent, string(jid), User, Group, p.DMDIR|0700, muc))
 	Must(muc.Chat.Add(&muc.File, "Chat", User, Group, 0600, muc.Chat))
-	return
+	return muc, nil
 }

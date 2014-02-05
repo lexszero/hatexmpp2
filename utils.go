@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"cjones.org/hg/go-xmpp2.hg/xmpp"
 	"code.google.com/p/go9p/p"
 	"code.google.com/p/go9p/p/srv"
 	"fmt"
@@ -9,12 +10,35 @@ import (
 	"log"
 	"os"
 	"reflect"
+	"strings"
 )
 
 func Must(err error) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func ConcatText(t []xmpp.Text) string {
+	s := make([]string, len(t))
+	for i := range t {
+		s[i] = string(t[i].Chardata)
+	}
+	return strings.Join(s, "\n")
+}
+
+func MaybeSetData(s *string, d *xmpp.Data) {
+	if s == nil || d == nil {
+		return
+	}
+	*s = d.Chardata
+}
+
+func MaybeSetText(s *string, t []xmpp.Text) {
+	if s == nil || t == nil {
+		return
+	}
+	*s = ConcatText(t)
 }
 
 type FilePrint struct {
@@ -111,11 +135,11 @@ type History interface {
 type FileHistory struct {
 	srv.File
 	History
-	Writer io.Writer
-	writer    io.Writer
-	reads     chan ReadRequest
-	writes    chan []byte
-	cancels   chan *srv.Fid
+	Writer  io.Writer
+	writer  io.Writer
+	reads   chan ReadRequest
+	writes  chan []byte
+	cancels chan *srv.Fid
 }
 
 func NewFileHistory(wr io.Writer) *FileHistory {

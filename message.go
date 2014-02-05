@@ -3,34 +3,47 @@ package main
 import (
 	"cjones.org/hg/go-xmpp2.hg/xmpp"
 	"fmt"
-	"io"
-	"strings"
 	"time"
 )
 
 type Msg struct {
 	Time time.Time
 	From xmpp.JID
+	Name string
 	Body string
-}
-
-func concatText(t []xmpp.Text) string {
-	s := make([]string, len(t))
-	for i := range t {
-		s[i] = string(t[i].Chardata)
-	}
-	return strings.Join(s, "\n")
+	chat *FileHistory
 }
 
 func MessageToMsg(m *xmpp.Message) *Msg {
+	hdr := m.GetHeader()
 	return &Msg{
 		Time: time.Now(), // TODO: extract timestamp from the stanza
-		From: m.GetHeader().From,
-		Body: concatText(m.Body),
+		From: hdr.From,
+		Body: ConcatText(m.Body),
 	}
 }
 
-func (m *Msg) WriteTo(wr io.Writer) (int64, error) {
-	n, e := fmt.Fprintf(wr, "%s %s: %s\n", m.Time.Format("15:04:05"), JidToName(m.From), m.Body)
+func (m *Msg) Chat(c *FileHistory) *Msg {
+	m.chat = c
+	m.Name = m.From.Node()
+	return m
+}
+
+func (m *Msg) Deliver() (int64, error) {
+	if m.chat == nil {
+		m.chat, m.Name = m.route()
+	}
+	n, e := fmt.Fprintf(m.chat.Writer, "%s %s: %s\n", m.Time.Format("15:04:05"), m.Name, m.Body)
 	return int64(n), e
+}
+
+func (m *Msg) route() (*FileHistory, string) {
+	jid := m.From.Bare()
+	if ri := Roster.Items[jid]; ri != nil {
+		return ri.Chat, ri.Name
+	}
+	if muc := MUCs.Items[jid]; muc != nil {
+		return muc.Chat, m.From.Resource()
+	}
+	return Roster.UnknownChat, string(m.From)
 }
