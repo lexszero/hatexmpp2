@@ -73,14 +73,14 @@ func (ri *RosterItem) AddResource(name string) *Resource {
 		Jid: xmpp.JID(fmt.Sprintf("%v/%v", ri.RosterItem.Jid, name)),
 	}
 	r.Chat = NewFileHistory(r)
-	r.Add(ri.Find("Resources"), name, User, Group, p.DMDIR|0700, r)
+	r.Add(ri.Find("resources"), name, User, Group, p.DMDIR|0700, r)
 	fp := &FilePrint{val: reflect.ValueOf(&r.Show)}
-	fp.Add(&r.File, "Show", User, Group, 0400, fp)
+	fp.Add(&r.File, "show", User, Group, 0400, fp)
 	fp = &FilePrint{val: reflect.ValueOf(&r.Status)}
-	fp.Add(&r.File, "Status", User, Group, 0400, fp)
+	fp.Add(&r.File, "status", User, Group, 0400, fp)
 	fp = &FilePrint{val: reflect.ValueOf(&r.Priority)}
-	fp.Add(&r.File, "Priority", User, Group, 0400, fp)
-	r.Chat.Add(&r.File, "Chat", User, Group, 0600, r.Chat)
+	fp.Add(&r.File, "priority", User, Group, 0400, fp)
+	r.Chat.Add(&r.File, "chat", User, Group, 0600, r.Chat)
 	ri.Resources[name] = r
 	return r
 }
@@ -94,7 +94,7 @@ func (ri *RosterItem) RemoveResource(name string) {
 		return
 	}
 	r.Chat.Stop()
-	for _, name := range []string{"Show", "Status", "Priority", "Chat"} {
+	for _, name := range []string{"show", "status", "priority", "chat"} {
 		r.Find(name).Remove()
 	}
 	r.Remove()
@@ -152,7 +152,7 @@ func MakeRoster(parent *srv.File) (roster *FRoster, err error) {
 		UnknownChat: NewFileHistory(new(RamBuffer)),
 	}
 	Must(roster.Add(parent, "roster", User, nil, p.DMDIR|0700, roster))
-	Must(roster.UnknownChat.Add(&roster.File, "UnknownChat", User, Group, 0600, roster.UnknownChat))
+	Must(roster.UnknownChat.Add(&roster.File, "unknown", User, Group, 0600, roster.UnknownChat))
 	for _, buddy := range Client.Roster.Get() {
 		roster.AddItem(buddy)
 	}
@@ -177,12 +177,12 @@ func (r *FRoster) AddItem(buddy xmpp.RosterItem) (ri *RosterItem) {
 	nri.Resources = make(map[string]*Resource)
 	Must(nri.Add(&r.File, string(buddy.Jid), User, nil, p.DMDIR|0700, nri))
 	fp := &FilePrint{val: reflect.ValueOf(&buddy.Name).Elem()}
-	Must(fp.Add(&nri.File, "Name", User, Group, 0400, fp))
+	Must(fp.Add(&nri.File, "name", User, Group, 0400, fp))
 	fp = &FilePrint{val: reflect.ValueOf(&buddy.Subscription).Elem()}
-	Must(fp.Add(&nri.File, "Subscription", User, Group, 0400, fp))
-	Must(nri.Chat.Add(&nri.File, "Chat", User, Group, 0600, nri.Chat))
+	Must(fp.Add(&nri.File, "subscription", User, Group, 0400, fp))
+	Must(nri.Chat.Add(&nri.File, "chat", User, Group, 0600, nri.Chat))
 	resdir := &srv.File{}
-	Must(resdir.Add(&nri.File, "Resources", User, Group, p.DMDIR|0700, resdir))
+	Must(resdir.Add(&nri.File, "resources", User, Group, p.DMDIR|0700, resdir))
 	r.Items[buddy.Jid] = nri
 	return nri
 }
@@ -199,7 +199,7 @@ func (r *FRoster) RemoveItem(jid xmpp.JID) {
 	for res := range ri.Resources {
 		ri.RemoveResource(res)
 	}
-	for _, name := range []string{"Name", "Subscription", "Chat", "Resources"} {
+	for _, name := range []string{"name", "subscription", "chat", "resources"} {
 		ri.Find(name).Remove()
 	}
 	ri.Remove()

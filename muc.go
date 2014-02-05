@@ -124,6 +124,6 @@ func NewMUC(parent *srv.File, jid xmpp.JID) (*MUC, error) {
 		return nil, e
 	}
 	Must(muc.Add(parent, string(jid), User, Group, p.DMDIR|0700, muc))
-	Must(muc.Chat.Add(&muc.File, "Chat", User, Group, 0600, muc.Chat))
+	Must(muc.Chat.Add(&muc.File, "chat", User, Group, 0600, muc.Chat))
 	return muc, nil
 }
