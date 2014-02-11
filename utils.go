@@ -186,6 +186,7 @@ func NewFileHistory(wr io.Writer, h History) *FileHistory {
 	b.Writer = AppendingWriter{b}
 	go func() {
 		reads := make(map[*srv.Fid]ReadRequest)
+Loop:
 		for {
 			select {
 			case r := <-b.reads:
@@ -213,13 +214,13 @@ func NewFileHistory(wr io.Writer, h History) *FileHistory {
 					delete(reads, f)
 					delete(Srv.Flushers, f)
 				}
-				close(b.reads)
-				close(b.writes)
-				close(b.cancels)
-				close(b.stop)
-				break
+				break Loop
 			}
 		}
+		close(b.reads)
+		close(b.writes)
+		close(b.cancels)
+		close(b.stop)
 	}()
 	return b
 }
