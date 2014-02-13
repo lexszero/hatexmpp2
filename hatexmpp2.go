@@ -49,7 +49,7 @@ func (s *Server) Flush(req *srv.Req) {
 
 type FRoot struct {
 	srv.File
-	Log *FileHistory	`mode:0400,nodir`
+	Log *FileHistory	`9p:"mode=0400,nodir"`
 }
 
 func (r *FRoot) Create(fid *srv.FFid, name string, perm uint32) (dir *srv.File, err error) {

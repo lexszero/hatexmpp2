@@ -10,7 +10,6 @@ import (
 	"encoding/xml"
 	"fmt"
 	"log"
-	"reflect"
 	"sync"
 )
 
@@ -33,11 +32,11 @@ func sendMsg(to xmpp.JID, t string, p []byte) *xmpp.Message {
 
 type Resource struct {
 	srv.File
-	Jid      xmpp.JID
-	Chat     *FileHistory
-	Show     string
-	Status   string
-	Priority string
+	Jid      xmpp.JID     `9p:"-"`
+	Chat     *FileHistory `9p:"mode=0600,nodir"`
+	Show     string       `9p:"mode=0400"`
+	Status   string       `9p:"mode=0400"`
+	Priority string       `9p:"mode=0400"`
 }
 
 func (r *Resource) Write(p []byte) (n int, err error) {
@@ -50,10 +49,10 @@ func (r *Resource) Write(p []byte) (n int, err error) {
 
 type RosterItem struct {
 	srv.File
-	xmpp.RosterItem
-	sync.Mutex
-	Chat      *FileHistory
-	Resources map[string]*Resource
+	xmpp.RosterItem `9p:"-"`
+	sync.Mutex      `9p:"-"`
+	Chat            *FileHistory         `9p:"mode=0600,nodir"`
+	Resources       map[string]*Resource `9p:"-"`
 }
 
 func (ri *RosterItem) Write(p []byte) (n int, err error) {
@@ -73,14 +72,7 @@ func (ri *RosterItem) AddResource(name string) *Resource {
 		Jid: xmpp.JID(fmt.Sprintf("%v/%v", ri.RosterItem.Jid, name)),
 	}
 	r.Chat = NewFileHistory(r, nil)
-	r.Add(ri.Find("resources"), name, User, Group, p.DMDIR|0700, r)
-	fp := &FilePrint{val: reflect.ValueOf(&r.Show)}
-	fp.Add(&r.File, "show", User, Group, 0400, fp)
-	fp = &FilePrint{val: reflect.ValueOf(&r.Status)}
-	fp.Add(&r.File, "status", User, Group, 0400, fp)
-	fp = &FilePrint{val: reflect.ValueOf(&r.Priority)}
-	fp.Add(&r.File, "priority", User, Group, 0400, fp)
-	r.Chat.Add(&r.File, "chat", User, Group, 0600, r.Chat)
+	Must(FileRecursiveAdd(ri.Find("resources"), r, name, p.DMDIR|0700))
 	ri.Resources[name] = r
 	return r
 }
@@ -157,7 +149,6 @@ func MakeRoster(parent *srv.File) (roster *FRoster, err error) {
 		roster.AddItem(buddy)
 	}
 	go func(ch <-chan xmpp.Stanza) {
-		log.Print("Receiving stanzas")
 		for s := range ch {
 			ProcessStanza(s)
 		}
@@ -170,15 +161,10 @@ func (r *FRoster) AddItem(buddy xmpp.RosterItem) (ri *RosterItem) {
 	log.Printf("Roster.AddItem %v", buddy.Jid)
 	nri := &RosterItem{
 		RosterItem: buddy,
+		Resources:  make(map[string]*Resource),
 	}
 	nri.Chat = NewFileChat(string(buddy.Jid), nri)
-	nri.Resources = make(map[string]*Resource)
-	Must(nri.Add(&r.File, string(buddy.Jid), User, Group, p.DMDIR|0700, nri))
-	fp := &FilePrint{val: reflect.ValueOf(&buddy.Name).Elem()}
-	Must(fp.Add(&nri.File, "name", User, Group, 0400, fp))
-	fp = &FilePrint{val: reflect.ValueOf(&buddy.Subscription).Elem()}
-	Must(fp.Add(&nri.File, "subscription", User, Group, 0400, fp))
-	Must(nri.Chat.Add(&nri.File, "chat", User, Group, 0600, nri.Chat))
+	Must(FileRecursiveAdd(&r.File, nri, string(buddy.Jid), p.DMDIR|0700))
 	resdir := &srv.File{}
 	Must(resdir.Add(&nri.File, "resources", User, Group, p.DMDIR|0700, resdir))
 	r.Items[buddy.Jid] = nri

@@ -277,8 +277,28 @@ func NewFileChat(name string, wr io.Writer) *FileHistory {
 	return NewFileHistory(wr, nil)
 }
 
+type tag9p map[string]string
+func tag9pParse(str reflect.StructField) (t tag9p) {
+	t = make(tag9p)
+	ss := strings.Split(str.Tag.Get("9p"), ",")
+	for _, s := range ss {
+		kv := strings.Split(s, "=")
+		if len(kv) == 2 {
+			t[kv[0]] = kv[1]
+		}
+		if len(kv) == 1 && kv[0] != "" {
+			t[kv[0]] = "true"
+		}
+	}
+	return
+}
+
+func (t tag9p) IsSet(name string) bool {
+	_, r := t[name]
+	return r
+}
+
 func fileRecursiveAddTV(parent *srv.File, t reflect.Type, v reflect.Value, name string, mode uint32) (err error) {
-	log.Printf("FileRecursiveAddTV name=%v kind=%v", name, t.Kind())
 	switch t.Kind() {
 	case reflect.Ptr:
 		return fileRecursiveAddTV(parent, t.Elem(), v.Elem(), name, mode)
@@ -291,7 +311,6 @@ func fileRecursiveAddTV(parent *srv.File, t reflect.Type, v reflect.Value, name 
 		}
 		fFile := reflect.ValueOf(f).Elem().FieldByName("File").Addr().Interface().(*srv.File)
 		return fFile.Add(parent, name, User, Group, mode, f)
-		
 	case reflect.Struct:
 		dir := v.Interface()
 		dirFile := v.Elem().FieldByName("File").Addr().Interface().(*srv.File)
@@ -312,16 +331,16 @@ func fileRecursiveAddTV(parent *srv.File, t reflect.Type, v reflect.Value, name 
 				fTyp = fTyp.Elem()
 				fVal = fVal.Elem()
 			}
-			log.Print("field ", f.Name)
-			if f.Tag.Get("nofile") != "" {
+			tag := tag9pParse(f)
+			if tag.IsSet("-") {
 				continue
 			}
 			fName := strings.ToLower(f.Name)
-			if s := f.Tag.Get("name"); s != "" {
+			if s, ok := tag["name"]; ok {
 				fName = s
 			}
 			fMode := uint32(0600)
-			if s := f.Tag.Get("mode"); s != "" {
+			if s, ok := tag["mode"]; ok {
 				fMode = uint32(MustVal(strconv.ParseUint(s, 8, 32)).(uint64))
 			}
 			if f.Type.Kind() == reflect.Struct && f.Tag.Get("nodir") == "" {
