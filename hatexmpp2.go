@@ -49,6 +49,7 @@ func (s *Server) Flush(req *srv.Req) {
 
 type FRoot struct {
 	srv.File
+	Log *FileHistory	`mode:0400,nodir`
 }
 
 func (r *FRoot) Create(fid *srv.FFid, name string, perm uint32) (dir *srv.File, err error) {
@@ -60,23 +61,25 @@ func (r *FRoot) Create(fid *srv.FFid, name string, perm uint32) (dir *srv.File, 
 	return nil, srv.Enotimpl
 }
 
+var Root = FRoot{
+	Log: NewFileHistory(nil, nil),
+}
+
 func main() {
 	go func() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
 	//xmpp.Debug = true
 	flag.Parse()
-	root := new(FRoot)
-	Must(root.Add(nil, "/", User, Group, p.DMDIR|0700, root))
-	Must(FileRecursiveAdd(&root.File, &Conf, "config", p.DMDIR|0700))
+	Log = log.New(Root.Log.Writer, "", log.LstdFlags)
 
-	flog := NewFileHistory(nil, nil)
-	Log = log.New(flog.Writer, "", log.LstdFlags)
-	Must(flog.Add(&root.File, "log", User, Group, 0400, flog))
+	Must(FileRecursiveAdd(nil, &Root, "/", p.DMDIR|0700))
+	Must(FileRecursiveAdd(&Root.File, &Conf, "config", p.DMDIR|0700))
 
-	MUCs = MakeMUCsDir(&root.File)
 
-	Srv.Fsrv.Root = &root.File
+	MUCs = MakeMUCsDir(&Root.File)
+
+	Srv.Fsrv.Root = &Root.File
 	Srv.Dotu = true
 	Srv.Debuglevel = *debug
 	Srv.Start(Srv)

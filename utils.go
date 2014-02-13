@@ -60,7 +60,7 @@ func (f *FilePrint) Read(fid *srv.FFid, buf []byte, offset uint64) (int, error) 
 	f.Lock()
 	defer f.Unlock()
 
-	b := []byte(fmt.Sprint(f.val.Interface()))
+	b := []byte(fmt.Sprint(f.val.Elem().Interface()))
 	have := len(b)
 	off := int(offset)
 	if off >= have {
@@ -83,7 +83,7 @@ func (f *FilePrintScan) Write(fid *srv.FFid, buf []byte, offset uint64) (n int, 
 	case reflect.String:
 		f.val.SetString(s)
 	default:
-		_, err = fmt.Sscan(s, f.val.Addr().Interface())
+		_, err = fmt.Sscan(s, f.val.Interface())
 	}
 	n = len(buf)
 	return
@@ -327,7 +327,7 @@ func fileRecursiveAddTV(parent *srv.File, t reflect.Type, v reflect.Value, name 
 			if f.Type.Kind() == reflect.Struct && f.Tag.Get("nodir") == "" {
 				fMode |= p.DMDIR
 			}
-			Must(fileRecursiveAddTV(dirFile, fTyp, fVal, fName, fMode))
+			Must(fileRecursiveAddTV(dirFile, fTyp, fVal.Addr(), fName, fMode))
 		}
 		return
 	}
