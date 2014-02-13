@@ -17,4 +17,3 @@ type Config struct {
 var Conf = Config{
 	Nick: "goHateXMPP",
 }
-

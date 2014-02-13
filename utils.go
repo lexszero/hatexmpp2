@@ -188,7 +188,7 @@ func NewFileHistory(wr io.Writer, h History) *FileHistory {
 	b.Writer = AppendingWriter{b}
 	go func() {
 		reads := make(map[*srv.Fid]ReadRequest)
-Loop:
+	Loop:
 		for {
 			select {
 			case r := <-b.reads:
@@ -278,6 +278,7 @@ func NewFileChat(name string, wr io.Writer) *FileHistory {
 }
 
 type tag9p map[string]string
+
 func tag9pParse(str reflect.StructField) (t tag9p) {
 	t = make(tag9p)
 	ss := strings.Split(str.Tag.Get("9p"), ",")
@@ -304,7 +305,7 @@ func fileRecursiveAddTV(parent *srv.File, t reflect.Type, v reflect.Value, name 
 		return fileRecursiveAddTV(parent, t.Elem(), v.Elem(), name, mode)
 	case reflect.String, reflect.Int:
 		var f interface{}
-		if mode & 0222 != 0 {
+		if mode&0222 != 0 {
 			f = &FilePrintScan{FilePrint: FilePrint{val: v}}
 		} else {
 			f = &FilePrint{val: v}
@@ -317,7 +318,7 @@ func fileRecursiveAddTV(parent *srv.File, t reflect.Type, v reflect.Value, name 
 		if err = dirFile.Add(parent, name, User, Group, mode, dir); err != nil {
 			return
 		}
-		if mode & p.DMDIR == 0 {
+		if mode&p.DMDIR == 0 {
 			return
 		}
 		for i := 0; i < t.NumField(); i++ {
