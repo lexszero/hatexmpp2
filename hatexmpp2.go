@@ -68,7 +68,7 @@ func main() {
 	flag.Parse()
 	root := new(FRoot)
 	Must(root.Add(nil, "/", User, Group, p.DMDIR|0700, root))
-	MakeConfigDir(&root.File)
+	Must(FileRecursiveAdd(&root.File, &Conf, "config", p.DMDIR|0700))
 
 	flog := NewFileHistory(nil, nil)
 	Log = log.New(flog.Writer, "", log.LstdFlags)

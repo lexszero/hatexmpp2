@@ -7,8 +7,10 @@ import (
 	"code.google.com/p/go9p/p/srv"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 )
 
@@ -273,4 +275,70 @@ func NewFileChat(name string, wr io.Writer) *FileHistory {
 		return NewFileHistory(wr, NewLogFile(name))
 	}
 	return NewFileHistory(wr, nil)
+}
+
+func fileRecursiveAddTV(parent *srv.File, t reflect.Type, v reflect.Value, name string, mode uint32) (err error) {
+	log.Printf("FileRecursiveAddTV name=%v kind=%v", name, t.Kind())
+	switch t.Kind() {
+	case reflect.Ptr:
+		return fileRecursiveAddTV(parent, t.Elem(), v.Elem(), name, mode)
+	case reflect.String, reflect.Int:
+		var f interface{}
+		if mode & 0222 != 0 {
+			f = &FilePrintScan{FilePrint: FilePrint{val: v}}
+		} else {
+			f = &FilePrint{val: v}
+		}
+		fFile := reflect.ValueOf(f).Elem().FieldByName("File").Addr().Interface().(*srv.File)
+		return fFile.Add(parent, name, User, Group, mode, f)
+		
+	case reflect.Struct:
+		dir := v.Interface()
+		dirFile := v.Elem().FieldByName("File").Addr().Interface().(*srv.File)
+		if err = dirFile.Add(parent, name, User, Group, mode, dir); err != nil {
+			return
+		}
+		if mode & p.DMDIR == 0 {
+			return
+		}
+		for i := 0; i < t.NumField(); i++ {
+			f := t.Field(i)
+			if f.Name == "File" {
+				continue
+			}
+			fTyp := f.Type
+			fVal := v.Elem().Field(i)
+			if fTyp.Kind() == reflect.Ptr {
+				fTyp = fTyp.Elem()
+				fVal = fVal.Elem()
+			}
+			log.Print("field ", f.Name)
+			if f.Tag.Get("nofile") != "" {
+				continue
+			}
+			fName := strings.ToLower(f.Name)
+			if s := f.Tag.Get("name"); s != "" {
+				fName = s
+			}
+			fMode := uint32(0600)
+			if s := f.Tag.Get("mode"); s != "" {
+				fMode = uint32(MustVal(strconv.ParseUint(s, 8, 32)).(uint64))
+			}
+			if f.Type.Kind() == reflect.Struct && f.Tag.Get("nodir") == "" {
+				fMode |= p.DMDIR
+			}
+			Must(fileRecursiveAddTV(dirFile, fTyp, fVal, fName, fMode))
+		}
+		return
+	}
+	return srv.Enotimpl
+}
+
+func FileRecursiveAdd(parent *srv.File, x interface{}, name string, mode uint32) (err error) {
+	xt := reflect.TypeOf(x)
+	xv := reflect.ValueOf(x)
+	if xt.Kind() == reflect.Ptr {
+		xt = xt.Elem()
+	}
+	return fileRecursiveAddTV(parent, xt, xv, name, mode)
 }
