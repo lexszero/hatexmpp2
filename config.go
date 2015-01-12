@@ -7,13 +7,19 @@ import (
 
 type Config struct {
 	srv.File
-	Jid      xmpp.JID
-	Password string
-	Priority int
-	Nick     string
-	LogDir   string
+	Jid         xmpp.JID
+	Password    string
+	Priority    int
+	Nick        string
+	LogDir      string
+	PingPeriod  int
+	PingTimeout int
+	Reconnect   int
 }
 
 var Conf = Config{
-	Nick: "goHateXMPP",
+	Nick:        "goHateXMPP",
+	PingPeriod:  2,
+	PingTimeout: 5,
+	Reconnect:   2,
 }

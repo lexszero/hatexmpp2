@@ -110,7 +110,7 @@ func NewMUC(parent *srv.File, jid xmpp.JID) (*MUC, error) {
 	}
 	Client.Send <- m
 	err := make(chan error)
-	Client.SetCallback(m.Id, func(s xmpp.Stanza) {
+	Client.SetCallback(m.Id, func(s xmpp.Stanza) bool {
 		switch s.(type) {
 		case *xmpp.Presence:
 			// TODO: error parsing
@@ -118,6 +118,7 @@ func NewMUC(parent *srv.File, jid xmpp.JID) (*MUC, error) {
 		default:
 			err <- srv.Eperm
 		}
+		return false
 	})
 	e := <-err
 	if e != nil {

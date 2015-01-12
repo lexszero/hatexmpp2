@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
 )
 
 func sendMsg(to xmpp.JID, t string, p []byte) *xmpp.Message {
@@ -78,6 +79,7 @@ func (ri *RosterItem) AddResource(name string) *Resource {
 }
 
 func (ri *RosterItem) RemoveResource(name string) {
+	log.Printf("RemoveResource %s %s", ri.Name, name)
 	ri.Lock()
 	defer ri.Unlock()
 
@@ -122,43 +124,131 @@ type FRoster struct {
 	srv.File
 	Items       map[xmpp.JID]*RosterItem
 	UnknownChat *FileHistory
+	stop        chan bool
+	stat        chan xmpp.Status
+	pinger      *Pinger
+}
+
+func (roster *FRoster) connect() (err error) {
+	log.Print("connecting")
+	// First of all, we need to process status messages from xmpp lib
+	roster.stop = make(chan bool)
+	roster.stat = make(chan xmpp.Status)
+	go func() {
+		fatal := false
+		defer log.Print("disconnected")
+		defer func() {
+			if fatal {
+				roster.UnknownChat.Stop()
+				roster.UnknownChat.Remove()
+				roster.File.Remove()
+			}
+		}()
+		for {
+			select {
+			case s, ok := <-roster.stat:
+				if ok {
+					log.Print("connection status ", s)
+					if s.Fatal() { // whoops, shit happened
+						roster.shutdown()
+					} else if s == xmpp.StatusRunning {
+						Log.Printf("connection established")
+						// don't forget to cleanup
+						defer func() {
+							for jid := range roster.Items {
+								roster.RemoveItem(jid)
+							}
+							Client.Close()
+						}()
+
+						// start pinger when connection is fully up
+						pinger := MakePinger(xmpp.JID(Conf.Jid.Domain()),
+							Conf.PingPeriod, Conf.PingTimeout,
+							func(jid xmpp.JID) bool {
+								roster.shutdown()
+								return false
+							})
+
+						// clean up nicely when there will be time to die
+						defer pinger.Stop()
+					}
+				} else {
+					// just for sure
+					roster.shutdown()
+				}
+			case fatal = <-roster.stop:
+				log.Print("stop issued")
+				if !fatal && Conf.Reconnect >= 0 {
+					// this goroutine will resurrect everything up
+					go func() {
+						if Conf.Reconnect > 0 {
+							log.Printf("sleeping %v seconds", Conf.Reconnect)
+							time.Sleep(time.Duration(Conf.Reconnect) * time.Second)
+						}
+						roster.connect()
+					}()
+				}
+				return
+			}
+		}
+	}()
+
+	Client, err = xmpp.NewClient(
+		&Conf.Jid,
+		Conf.Password,
+		&tls.Config{InsecureSkipVerify: true},
+		nil,
+		xmpp.Presence{
+			Header: xmpp.Header{
+				From: Conf.Jid,
+				Id:   xmpp.NextId(),
+			},
+		},
+		roster.stat)
+	if err != nil {
+		log.Printf("xmpp.NewClient:", err)
+		roster.shutdown()
+		return
+	}
+
+	go func() {
+		// get roster and finally begin useful work
+		for _, buddy := range Client.Roster.Get() {
+			roster.AddItem(buddy)
+		}
+		for s := range Client.Recv {
+			ProcessStanza(s)
+		}
+	}()
+	return
+}
+
+func (r *FRoster) shutdown() {
+	log.Print("send stop")
+	r.stop <- false
 }
 
 func MakeRoster(parent *srv.File) (roster *FRoster, err error) {
-	stat := make(chan xmpp.Status)
-	go func() {
-		for s := range stat {
-			Log.Printf("connection status %d", s)
-		}
-	}()
-	if Client, err = xmpp.NewClient(
-		&Conf.Jid,
-		Conf.Password,
-		tls.Config{InsecureSkipVerify: true},
-		nil, xmpp.Presence{}, stat); err != nil {
-		log.Printf("xmpp.NewClient:", err)
-		return
-	}
 	roster = &FRoster{
 		Items:       make(map[xmpp.JID]*RosterItem),
 		UnknownChat: NewFileChat("unknown", nil),
 	}
+
 	Must(roster.Add(parent, "roster", User, Group, p.DMDIR|0700, roster))
 	Must(roster.UnknownChat.Add(&roster.File, "unknown", User, Group, 0600, roster.UnknownChat))
-	for _, buddy := range Client.Roster.Get() {
-		roster.AddItem(buddy)
-	}
-	go func(ch <-chan xmpp.Stanza) {
-		for s := range ch {
-			ProcessStanza(s)
-		}
-		log.Print("done reading")
-	}(Client.Recv)
+
+	err = roster.connect()
+
 	return
 }
 
+func (r *FRoster) Remove(fid *srv.FFid) error {
+	log.Print("removing roster")
+	r.stop <- true
+	return nil
+}
+
 func (r *FRoster) AddItem(buddy xmpp.RosterItem) (ri *RosterItem) {
-	log.Printf("Roster.AddItem %v", buddy.Jid)
 	nri := &RosterItem{
 		RosterItem: buddy,
 		Resources:  make(map[string]*Resource),
@@ -180,7 +270,7 @@ func (r *FRoster) RemoveItem(jid xmpp.JID) {
 	for res := range ri.Resources {
 		ri.RemoveResource(res)
 	}
-	for _, name := range []string{"name", "subscription", "chat", "resources"} {
+	for _, name := range []string{"chat", "resources"} {
 		ri.Find(name).Remove()
 	}
 	ri.Remove()
@@ -209,7 +299,9 @@ func ProcessStanza(s xmpp.Stanza) {
 		if muc := MUCs.Items[from]; muc != nil {
 			muc.Presence(m)
 		}
+	case *xmpp.Iq:
+		Log.Printf("iq from %v, type=%v", hdr.From, hdr.Type)
 	default:
-		log.Printf("Unkown stanza: %+v", s)
+		log.Printf("Unknown stanza: %+v", s)
 	}
 }

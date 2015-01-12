@@ -7,7 +7,6 @@ import (
 	"code.google.com/p/go9p/p/srv"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"reflect"
 	"strconv"
@@ -26,6 +25,9 @@ func MustVal(x interface{}, err error) interface{} {
 }
 
 func ConcatText(t []xmpp.Text) string {
+	if t == nil {
+		return ""
+	}
 	s := make([]string, len(t))
 	for i := range t {
 		s[i] = string(t[i].Chardata)
@@ -34,14 +36,18 @@ func ConcatText(t []xmpp.Text) string {
 }
 
 func MaybeSetData(s *string, d *xmpp.Data) {
-	if s == nil || d == nil {
+	if s == nil {
 		return
 	}
-	*s = d.Chardata
+	if d == nil {
+		*s = ""
+	} else {
+		*s = d.Chardata
+	}
 }
 
 func MaybeSetText(s *string, t []xmpp.Text) {
-	if s == nil || t == nil {
+	if s == nil {
 		return
 	}
 	*s = ConcatText(t)
