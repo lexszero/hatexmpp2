@@ -15,6 +15,7 @@ type Config struct {
 	PingPeriod  int
 	PingTimeout int
 	Reconnect   int
+	LogJSON     bool
 }
 
 var Conf = Config{
@@ -22,4 +23,5 @@ var Conf = Config{
 	PingPeriod:  2,
 	PingTimeout: 5,
 	Reconnect:   2,
+	LogJSON:     false,
 }

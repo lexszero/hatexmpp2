@@ -309,7 +309,7 @@ func fileRecursiveAddTV(parent *srv.File, t reflect.Type, v reflect.Value, name 
 	switch t.Kind() {
 	case reflect.Ptr:
 		return fileRecursiveAddTV(parent, t.Elem(), v.Elem(), name, mode)
-	case reflect.String, reflect.Int:
+	case reflect.String, reflect.Int, reflect.Bool:
 		var f interface{}
 		if mode&0222 != 0 {
 			f = &FilePrintScan{FilePrint: FilePrint{val: v}}

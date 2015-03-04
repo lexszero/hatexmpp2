@@ -2,16 +2,17 @@ package main
 
 import (
 	"cjones.org/hg/go-xmpp2.hg/xmpp"
+	"encoding/json"
 	"fmt"
 	"time"
 )
 
 type Msg struct {
 	Time time.Time
-	From xmpp.JID
+	From xmpp.JID `json:"-"`
 	Name string
 	Body string
-	chat *FileHistory
+	chat *FileHistory `json:"-"`
 }
 
 func MessageToMsg(m *xmpp.Message) *Msg {
@@ -33,8 +34,23 @@ func (m *Msg) Deliver() (int64, error) {
 	if m.chat == nil {
 		m.chat, m.Name = m.route()
 	}
-	n, e := fmt.Fprintf(m.chat.Writer, "%s %s: %s\n", m.Time.Format("15:04:05"), m.Name, m.Body)
-	return int64(n), e
+	var (
+		err error
+		n   int
+	)
+
+	if Conf.LogJSON {
+		var b []byte
+		b, err = json.Marshal(m)
+		if err != nil {
+			return 0, err
+		}
+		n, err = m.chat.Writer.Write(b)
+		m.chat.Writer.Write([]byte("\n"))
+	} else {
+		n, err = fmt.Fprintf(m.chat.Writer, "%s %s: %s\n", m.Time.Format("15:04:05"), m.Name, m.Body)
+	}
+	return int64(n), err
 }
 
 func (m *Msg) route() (*FileHistory, string) {
