@@ -1,10 +1,10 @@
 package main
 
 import (
-	"cjones.org/hg/go-xmpp2.hg/xmpp"
 	"code.google.com/p/go9p/p"
 	"code.google.com/p/go9p/p/srv"
 	"flag"
+	"github.com/lexszero/go-xmpp2/xmpp"
 	"log"
 	"net/http"
 	_ "net/http/pprof"

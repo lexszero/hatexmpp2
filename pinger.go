@@ -1,7 +1,7 @@
 package main
 
 import (
-	"cjones.org/hg/go-xmpp2.hg/xmpp"
+	"github.com/lexszero/go-xmpp2/xmpp"
 	"log"
 	"time"
 )

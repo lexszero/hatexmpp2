@@ -1,11 +1,11 @@
 package main
 
 import (
-	"cjones.org/hg/go-xmpp2.hg/xmpp"
 	"code.google.com/p/go9p/p"
 	"code.google.com/p/go9p/p/srv"
 	"encoding/xml"
 	"fmt"
+	"github.com/lexszero/go-xmpp2/xmpp"
 )
 
 type MUC struct {
